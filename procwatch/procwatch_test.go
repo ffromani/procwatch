@@ -1,9 +1,15 @@
-/* procwatch keeps track of statistics about running processes */
+// procwatch keeps track of statistics about running processes
+//
+// (C) 2014-2015 Francesco Romani (fromani on gmail)
+// License: MIT
+
 package procwatch
+
 
 import (
     "testing"
     "time"
+
 )
 
 func newWatcher(t *testing.T) *Watcher {
