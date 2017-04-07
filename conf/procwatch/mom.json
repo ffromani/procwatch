@@ -1,0 +1,5 @@
+{
+	"Argv": ["python", "/usr/sbin/momd"],
+	"Interval": 2,
+	"Name": "momd"
+}

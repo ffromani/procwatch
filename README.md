@@ -51,16 +51,17 @@ You may want to make this setting persistent
   # restorecon -v /usr/local/libexec/procwatch
   ```
 
-4. copy the recommended configuration:
+4. copy the recommended configurations:
 
   ```
-  $ sudo cp $GOPATH/src/github.com/fromanirh/procwatch/conf/procwatch.json /etc
+  # mkdir /etc/procwatch.d
+  $ sudo cp $GOPATH/src/github.com/fromanirh/procwatch/conf/procwatch/*.json /etc/procwatch.d/
   ```
 
-5. copy the collectd configlet:
+5. copy the collectd configlets:
 
   ```
-  $ sudo cp $GOPATH/src/github.com/fromanirh/procwatch/conf/collectd/procwatchvdsm.conf /etc/collectd.d
+  $ sudo cp $GOPATH/src/github.com/fromanirh/procwatch/conf/collectd/procwatch*.conf /etc/collectd.d
   ```
 
 6. restart collectd
