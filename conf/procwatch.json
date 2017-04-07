@@ -1,4 +1,5 @@
 {
 	"Argv": ["/usr/bin/python2", "/usr/share/vdsm/vdsmd"],
-	"Interval": 2
+	"Interval": 2,
+	"Name": "vdsmd"
 }

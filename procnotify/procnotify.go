@@ -5,6 +5,7 @@ import (
 	"github.com/fromanirh/procwatch/procfind"
 	"github.com/shirou/gopsutil/process"
 	"log"
+	"math"
 	"path/filepath"
 	"time"
 )
@@ -61,6 +62,19 @@ func (notif *Notifier) IsCurrent() bool {
 	return true
 }
 
+func round(val float64, roundOn float64, places int) float64 {
+	var round float64
+	pow := math.Pow(10, float64(places))
+	digit := pow * val
+	_, div := math.Modf(digit)
+	if div >= roundOn {
+		round = math.Ceil(digit)
+	} else {
+		round = math.Floor(digit)
+	}
+	return round / pow
+}
+
 func (notif *Notifier) collectd(proc *process.Process) error {
 	ident := fmt.Sprintf("PUTVAL %s/exec-%s-%d", notif.hostname, notif.name, proc.Pid)
 	interval := int(notif.interval.Seconds())
@@ -69,21 +83,22 @@ func (notif *Notifier) collectd(proc *process.Process) error {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s/cpu-perc interval=%d %f:0:U\n", ident, interval, cpu_perc)
+	fmt.Printf("%s/cpu-perc interval=%d N:%d\n", ident, interval, int(round(cpu_perc, 0.5, 0)))
+	fmt.Printf("%s/percent-cpu interval=%d N:%d\n", ident, interval, int(round(cpu_perc, 0.5, 0)))
 
 	cpu_times, err := proc.Times()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s/cpu-user interval=%d %f:0:U\n", ident, interval, cpu_times.User)
-	fmt.Printf("%s/cpu-system interval=%d %f:0:U\n", ident, interval, cpu_times.System)
+	fmt.Printf("%s/cpu-user interval=%d N:%d\n", ident, interval, int(round(cpu_times.User, 0.5, 0)))
+	fmt.Printf("%s/cpu-system interval=%d N:%d\n", ident, interval, int(round(cpu_times.System, 0.5, 0)))
 
 	mem_info, err := proc.MemoryInfo()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s/memory-virtual interval=%d %d:0:U\n", ident, interval, mem_info.VMS/1024)
-	fmt.Printf("%s/memory-resident interval=%d %d:0:U\n", ident, interval, mem_info.RSS/1024)
+	fmt.Printf("%s/memory-virtual interval=%d N:%d\n", ident, interval, mem_info.VMS/1024)
+	fmt.Printf("%s/memory-resident interval=%d N:%d\n", ident, interval, mem_info.RSS/1024)
 
 	return nil
 }
