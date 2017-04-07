@@ -127,7 +127,7 @@ func needHelp() bool {
 	if len(os.Args) > 3 {
 		return true
 	}
-	if len(os.Args) >= 1 {
+	if len(os.Args) >= 2 {
 		if os.Args[1] == "-h" || os.Args[1] == "--help" {
 			return true
 		}
