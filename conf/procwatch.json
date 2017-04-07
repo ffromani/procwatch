@@ -1,4 +1,4 @@
 {
-	"Argv": ["/usr/lib64/firefox/firefox"],
+	"Argv": ["/usr/bin/python2", "/usr/share/vdsm/vdsm"],
 	"Interval": 2
 }
