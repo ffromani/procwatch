@@ -65,13 +65,13 @@ func (notif *Notifier) collectd(proc *process.Process) error {
 	ident := fmt.Sprintf("PUTVAL %s/exec-%s-%d", notif.hostname, notif.name, proc.Pid)
 	interval := int(notif.interval.Seconds())
 
-	cpu_perc, err := proc.CPUPercent(0)
+	cpu_perc, err := proc.Percent(0)
 	if err != nil {
 		return err
 	}
 	fmt.Printf("%s/cpu-perc interval=%d %f:0:U\n", ident, interval, cpu_perc)
 
-	cpu_times, err := proc.CPUTimes()
+	cpu_times, err := proc.Times()
 	if err != nil {
 		return err
 	}
