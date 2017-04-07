@@ -2,6 +2,7 @@ package procfind
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -58,6 +59,30 @@ func findPidByArgv(cmdline []string, entries []string, firstOnly bool) ([]Pid, e
 		err = ErrPidNotFound
 	}
 	return pids, err
+}
+
+func Match(cmdline []string, pid Pid) bool {
+	entry := fmt.Sprintf("/proc/%d/cmdline", int(pid))
+	argv := readProcCmdline(entry)
+
+	if argv == nil || len(argv) == 0 {
+		return false
+	}
+
+	matched, err := matchArgv(argv, cmdline)
+	if err != nil || !matched {
+		return false
+	}
+	return true
+}
+
+func MatchAll(cmdline []string, pids []Pid) bool {
+	for _, pid := range pids {
+		if !Match(cmdline, pid) {
+			return false
+		}
+	}
+	return true
 }
 
 func matchArgv(argv, model []string) (bool, error) {

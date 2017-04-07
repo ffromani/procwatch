@@ -4,13 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fromanirh/procwatch/procfind"
-	"github.com/shirou/gopsutil/process"
+	"github.com/fromanirh/procwatch/procnotify"
 	"io/ioutil"
 	"log"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"time"
 )
@@ -18,8 +16,10 @@ import (
 const confFile string = "procwatch.json"
 
 type Config struct {
-	IntervalSeconds int
-	Argv            []string
+	Argv      []string
+	AutoTrack bool
+	Interval  int
+	Name      string
 }
 
 func (conf *Config) ReadFile(path string) error {
@@ -61,20 +61,24 @@ func NewInterval() Interval {
 	return Interval{Cmdline: val, Environ: val, Config: val}
 }
 
-func (intv *Interval) Fill(conf Config, envVar string) error {
-	if conf.IntervalSeconds <= 0 {
-		return errors.New(fmt.Sprintf("invalid interval: %d", conf.IntervalSeconds))
+func (intv *Interval) Fill(conf Config) error {
+	if conf.Interval <= 0 {
+		return errors.New(fmt.Sprintf("invalid interval: %d", conf.Interval))
 	}
 
-	intv.Config = time.Duration(conf.IntervalSeconds) * time.Second
+	intv.Config = time.Duration(conf.Interval) * time.Second
 
-	val, err := strconv.Atoi(os.Args[1])
-	intv.Cmdline = time.Duration(val) * time.Second
-	if err != nil {
-		return err
+	if len(os.Args) >= 2 {
+		val, err := strconv.Atoi(os.Args[1])
+		if err != nil {
+			return err
+		}
+		intv.Cmdline = time.Duration(val) * time.Second
 	}
+
+	envVar := os.Getenv("PROCWATCH_UPDATE_EVERY")
 	if envVar != "" {
-		val, err = strconv.Atoi(envVar)
+		val, err := strconv.Atoi(envVar)
 		if err != nil {
 			return err
 		}
@@ -85,7 +89,7 @@ func (intv *Interval) Fill(conf Config, envVar string) error {
 }
 
 func loadConf() *Config {
-	conf := Config{IntervalSeconds: 1}
+	conf := Config{Interval: 2, AutoTrack: true}
 	confDirs := []string{
 		os.Getenv("PROCWATCH_CONFIG_DIR"),
 		"/etc",
@@ -106,7 +110,7 @@ func loadConf() *Config {
 
 func getInterval(conf Config) time.Duration {
 	intv := NewInterval()
-	err := intv.Fill(conf, os.Getenv("PROCWATCH_UPDATE_EVERY"))
+	err := intv.Fill(conf)
 	if err != nil {
 		log.Printf("unknown duration: %s", err)
 		return 0
@@ -114,52 +118,7 @@ func getInterval(conf Config) time.Duration {
 	return intv.Pick()
 }
 
-type ProcInfo struct {
-	proc  *process.Process
-	pid   int32
-	argv0 string
-}
-
-func notifyCollectd(hostname string, interval time.Duration, pinfo *ProcInfo) error {
-	cpu_times, err := pinfo.proc.CPUTimes()
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%s/exec-%s-%d/cpu-user interval=%d %f:0:U\n", hostname, pinfo.argv0, pinfo.pid, int(interval.Seconds()), cpu_times.User)
-	return nil
-}
-
-func collectForever(hostname string, argv []string, interval time.Duration) {
-	c := time.Tick(interval)
-
-	log.Printf("collection started")
-	for _ = range c {
-		// WARNING: we assume collection time is negligible
-		pids, err := procfind.FindAll(argv)
-		if err != nil {
-			log.Printf("error collecting: %v - skipping cycle", err)
-			continue
-		}
-
-		for _, pid := range pids {
-			pinfo := ProcInfo{proc: nil, pid: int32(pid), argv0: filepath.Base(argv[0])}
-			proc, err := process.NewProcess(pinfo.pid)
-			if err != nil {
-				log.Printf("cannot find process %v: %v", pinfo.pid, err)
-				continue
-			}
-			pinfo.proc = proc
-			notifyCollectd(hostname, interval, &pinfo)
-		}
-	}
-	log.Printf("collection stopped")
-
-}
-
 func main() {
-	if len(os.Args) != 2 {
-		log.Fatalf("usage: %s interval", os.Args[0])
-	}
 	log.Printf("procwatcher started")
 	defer log.Printf("procwatcher stopped")
 
@@ -178,13 +137,14 @@ func main() {
 		log.Printf("configuration: %#v", conf)
 	}
 
-	updateInterval := getInterval(*conf)
-	if updateInterval <= 0 {
-		log.Printf("bad interval: %v", updateInterval)
+	interval := getInterval(*conf)
+	if interval <= 0 {
+		log.Printf("bad interval: %v", interval)
 		return
 	} else {
-		log.Printf("updating process stats every %v", updateInterval)
+		log.Printf("updating process stats every %v", interval)
 	}
 
-	collectForever(hostname, conf.Argv, updateInterval)
+	notifier := procnotify.NewNotifier(conf.Name, conf.Argv, conf.AutoTrack, hostname, interval)
+	notifier.Loop()
 }
