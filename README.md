@@ -61,7 +61,7 @@ You may want to make this setting persistent
 5. copy the collectd configlets:
 
   ```
-  $ sudo cp $GOPATH/src/github.com/fromanirh/procwatch/conf/collectd/procwatch*.conf /etc/collectd.d
+  $ sudo cp $GOPATH/src/github.com/fromanirh/procwatch/conf/collectd/procwatch*.conf /etc/collectd.d/
   ```
 
 6. restart collectd
@@ -93,7 +93,9 @@ TODO
 
 * test suite
 
-* track other processes (MOM, libvirtd)
+* support pidfile
+
+* track other processes (MOM, libvirtd) in a single binary
 
 * support multiple tool (netdata?)
 
