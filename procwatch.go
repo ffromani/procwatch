@@ -78,11 +78,11 @@ func (intv *Interval) Fill(conf Config) error {
 
 	envVar := os.Getenv("COLLECTD_INTERVAL")
 	if envVar != "" {
-		val, err := strconv.Atoi(envVar)
+		val, err := strconv.ParseFloat(envVar, 64)
 		if err != nil {
 			return err
 		}
-		intv.Environ = time.Duration(val) * time.Second
+		intv.Environ = time.Duration(int(val)) * time.Second
 	}
 
 	return nil
