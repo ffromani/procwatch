@@ -68,15 +68,15 @@ func (intv *Interval) Fill(conf Config) error {
 
 	intv.Config = time.Duration(conf.Interval) * time.Second
 
-	if len(os.Args) >= 2 {
-		val, err := strconv.Atoi(os.Args[1])
+	if len(os.Args) >= 3 {
+		val, err := strconv.Atoi(os.Args[2])
 		if err != nil {
 			return err
 		}
 		intv.Cmdline = time.Duration(val) * time.Second
 	}
 
-	envVar := os.Getenv("PROCWATCH_UPDATE_EVERY")
+	envVar := os.Getenv("COLLECTD_INTERVAL")
 	if envVar != "" {
 		val, err := strconv.Atoi(envVar)
 		if err != nil {
@@ -90,7 +90,12 @@ func (intv *Interval) Fill(conf Config) error {
 
 func loadConf() *Config {
 	conf := Config{Interval: 2, AutoTrack: true}
+	cmdlineDir := ""
+	if len(os.Args) >= 2 {
+		cmdlineDir = os.Args[1]
+	}
 	confDirs := []string{
+		cmdlineDir,
 		os.Getenv("PROCWATCH_CONFIG_DIR"),
 		"/etc",
 		".",
@@ -118,16 +123,37 @@ func getInterval(conf Config) time.Duration {
 	return intv.Pick()
 }
 
+func needHelp() bool {
+	if len(os.Args) > 3 {
+		return true
+	}
+	if len(os.Args) >= 1 {
+		if os.Args[1] == "-h" || os.Args[1] == "--help" {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
+	if needHelp() {
+		fmt.Fprintf(os.Stderr, "usage: %s [/path/to/procwatch.json [interval_seconds]]\n", os.Args[0])
+		return
+	}
+
 	log.Printf("procwatcher started")
 	defer log.Printf("procwatcher stopped")
 
+	var err error
 	conf := loadConf()
 
-	hostname, err := os.Hostname()
-	if err != nil {
-		log.Printf("error getting the host name: %s", err)
-		return
+	hostname := os.Getenv("COLLECTD_HOSTNAME")
+	if hostname == "" {
+		hostname, err = os.Hostname()
+		if err != nil {
+			log.Printf("error getting the host name: %s", err)
+			return
+		}
 	}
 
 	if len(conf.Argv) == 0 {
