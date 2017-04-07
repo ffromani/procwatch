@@ -23,6 +23,8 @@ type Config struct {
 }
 
 func (conf *Config) ReadFile(path string) error {
+	log.Printf("trying configuration: %s", path)
+
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
@@ -34,6 +36,9 @@ func (conf *Config) ReadFile(path string) error {
 			return err
 		}
 	}
+
+	log.Printf("Read from file: %s", path)
+	log.Printf("Updated configuration: %#v", conf)
 	return nil
 }
 
@@ -90,12 +95,13 @@ func (intv *Interval) Fill(conf Config) error {
 
 func loadConf() *Config {
 	conf := Config{Interval: 2, AutoTrack: true}
-	cmdlineDir := ""
 	if len(os.Args) >= 2 {
-		cmdlineDir = os.Args[1]
+		err := conf.ReadFile(os.Args[1])
+		if err == nil {
+			return &conf
+		}
 	}
 	confDirs := []string{
-		cmdlineDir,
 		os.Getenv("PROCWATCH_CONFIG_DIR"),
 		"/etc",
 		".",
@@ -105,9 +111,10 @@ func loadConf() *Config {
 			continue
 		}
 		confPath := path.Join(confDir, confFile)
+		log.Printf("trying configuration: %s", confPath)
 		err := conf.ReadFile(confPath)
 		if err == nil {
-			log.Printf("Using configuration file %s", confPath)
+			break
 		}
 	}
 	return &conf
