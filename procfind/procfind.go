@@ -15,10 +15,6 @@ var (
 	ErrEnvVarNotFound = errors.New("environment variable missing")
 )
 
-func isExecutable(info os.FileInfo) bool {
-	return bool(int(info.Mode().Perm()&0111) != 0)
-}
-
 func Path() (string, error) {
 	for _, envvar := range os.Environ() {
 		if strings.HasPrefix(envvar, "PATH") {
@@ -32,7 +28,7 @@ func Path() (string, error) {
 func FindExe(exename, pathlist string) (string, error) {
 	var exepath string
 	var exeinfo os.FileInfo
-	var err error
+	err := ErrExeNotFound
 
 	if strings.HasPrefix(exename, string(os.PathSeparator)) {
 		exepath = exename
@@ -47,10 +43,7 @@ func FindExe(exename, pathlist string) (string, error) {
 		}
 	}
 
-	if err != nil {
-		return "", err
-	}
-	if !isExecutable(exeinfo) {
+	if err != nil || !isExecutable(exeinfo) {
 		return "", ErrExeNotFound
 	}
 	return exepath, nil
@@ -62,4 +55,8 @@ func Which(exename string) (string, error) {
 		return "", err
 	}
 	return FindExe(exename, pathlist)
+}
+
+func isExecutable(info os.FileInfo) bool {
+	return bool(int(info.Mode().Perm()&0111) != 0)
 }

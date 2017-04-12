@@ -10,6 +10,54 @@ import (
 	"strings"
 )
 
+func Match(cmdline []string, pid Pid) bool {
+	entry := fmt.Sprintf("/proc/%d/cmdline", int(pid))
+	argv := readProcCmdline(entry)
+
+	if argv == nil || len(argv) == 0 {
+		return false
+	}
+
+	matched, err := matchArgv(argv, cmdline)
+	if err != nil || !matched {
+		return false
+	}
+	return true
+}
+
+func MatchAll(cmdline []string, pids []Pid) bool {
+	for _, pid := range pids {
+		if !Match(cmdline, pid) {
+			return false
+		}
+	}
+	return true
+}
+
+func Argv(pid Pid) []string {
+	return readProcCmdline(filepath.Join("/proc", strconv.Itoa(int(pid)), "cmdline"))
+}
+
+func Find(argv []string) (Pid, error) {
+	pids, err := findInProcFs(argv, true)
+	if err != nil {
+		return 0, err
+	}
+	return pids[0], nil
+}
+
+func FindAll(argv []string) ([]Pid, error) {
+	return findInProcFs(argv, false)
+}
+
+func PidOf(exename string) ([]Pid, error) {
+	exepath, err := Which(exename)
+	if err != nil {
+		return make([]Pid, 0), err
+	}
+	return findInProcFs([]string{exepath}, false)
+}
+
 func readProcCmdline(pathname string) []string {
 	argv := make([]string, 0)
 	content, err := ioutil.ReadFile(pathname)
@@ -61,30 +109,6 @@ func findPidByArgv(cmdline []string, entries []string, firstOnly bool) ([]Pid, e
 	return pids, err
 }
 
-func Match(cmdline []string, pid Pid) bool {
-	entry := fmt.Sprintf("/proc/%d/cmdline", int(pid))
-	argv := readProcCmdline(entry)
-
-	if argv == nil || len(argv) == 0 {
-		return false
-	}
-
-	matched, err := matchArgv(argv, cmdline)
-	if err != nil || !matched {
-		return false
-	}
-	return true
-}
-
-func MatchAll(cmdline []string, pids []Pid) bool {
-	for _, pid := range pids {
-		if !Match(cmdline, pid) {
-			return false
-		}
-	}
-	return true
-}
-
 func matchArgv(argv, model []string) (bool, error) {
 	ref := model
 	oth := argv
@@ -104,34 +128,10 @@ func matchArgv(argv, model []string) (bool, error) {
 	return true, nil
 }
 
-func Argv(pid Pid) []string {
-	return readProcCmdline(filepath.Join("/proc", strconv.Itoa(int(pid)), "cmdline"))
-}
-
-func Find(argv []string) (Pid, error) {
-	pids, err := findInProcFs(argv, true)
-	if err != nil {
-		return 0, err
-	}
-	return pids[0], nil
-}
-
-func FindAll(argv []string) ([]Pid, error) {
-	return findInProcFs(argv, false)
-}
-
 func findInProcFs(argv []string, firstOnly bool) ([]Pid, error) {
 	entries, err := filepath.Glob("/proc/*/cmdline")
 	if err != nil {
 		return make([]Pid, 0), err
 	}
 	return findPidByArgv(argv, entries, firstOnly)
-}
-
-func PidOf(exename string) ([]Pid, error) {
-	exepath, err := Which(exename)
-	if err != nil {
-		return make([]Pid, 0), err
-	}
-	return findInProcFs([]string{exepath}, false)
 }
