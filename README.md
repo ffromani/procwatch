@@ -93,6 +93,8 @@ TODO
 
 * test suite
 
+* verbosiness flag (collectd report status messages as error)
+
 * support pidfile
 
 * track other processes (MOM, libvirtd) in a single binary
