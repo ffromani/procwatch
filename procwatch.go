@@ -15,14 +15,7 @@ import (
 
 const confFile string = "procwatch.json"
 
-type Config struct {
-	Argv      []string
-	AutoTrack bool
-	Interval  int
-	Name      string
-}
-
-func (conf *Config) ReadFile(path string) error {
+func ReadFile(conf *procnotify.Config, path string) error {
 	log.Printf("trying configuration: %s", path)
 
 	content, err := ioutil.ReadFile(path)
@@ -66,7 +59,7 @@ func NewInterval() Interval {
 	return Interval{Cmdline: val, Environ: val, Config: val}
 }
 
-func (intv *Interval) Fill(conf Config) error {
+func (intv *Interval) Fill(conf procnotify.Config) error {
 	if conf.Interval <= 0 {
 		return errors.New(fmt.Sprintf("invalid interval: %d", conf.Interval))
 	}
@@ -93,12 +86,12 @@ func (intv *Interval) Fill(conf Config) error {
 	return nil
 }
 
-func loadConf() *Config {
-	conf := Config{Interval: 2, AutoTrack: true}
+func loadConf() procnotify.Config {
+	conf := procnotify.Config{Interval: 2, AutoTrack: true, ReportPid: true}
 	if len(os.Args) >= 2 {
-		err := conf.ReadFile(os.Args[1])
+		err := ReadFile(&conf, os.Args[1])
 		if err == nil {
-			return &conf
+			return conf
 		}
 	}
 	confDirs := []string{
@@ -112,22 +105,23 @@ func loadConf() *Config {
 		}
 		confPath := path.Join(confDir, confFile)
 		log.Printf("trying configuration: %s", confPath)
-		err := conf.ReadFile(confPath)
+		err := ReadFile(&conf, confPath)
 		if err == nil {
 			break
 		}
 	}
-	return &conf
+	return conf
 }
 
-func getInterval(conf Config) time.Duration {
+func selectInterval(conf *procnotify.Config) time.Duration {
 	intv := NewInterval()
-	err := intv.Fill(conf)
+	err := intv.Fill(*conf)
 	if err != nil {
 		log.Printf("unknown duration: %s", err)
 		return 0
 	}
-	return intv.Pick()
+	conf.Interval = intv.Pick()
+	return conf.Interval
 }
 
 func needHelp() bool {
@@ -162,6 +156,7 @@ func main() {
 			return
 		}
 	}
+	conf.Hostname = hostname
 
 	if len(conf.Argv) == 0 {
 		log.Printf("missing process to track")
@@ -170,14 +165,14 @@ func main() {
 		log.Printf("configuration: %#v", conf)
 	}
 
-	interval := getInterval(*conf)
-	if interval <= 0 {
-		log.Printf("bad interval: %v", interval)
+	selectInterval(&conf)
+	if conf.Interval <= 0 {
+		log.Printf("bad interval: %v", conf.Interval)
 		return
 	} else {
-		log.Printf("updating process stats every %v", interval)
+		log.Printf("updating process stats every %v", conf.Interval)
 	}
 
-	notifier := procnotify.NewNotifier(conf.Name, conf.Argv, conf.AutoTrack, hostname, interval)
+	notifier := procnotify.NewNotifier(conf)
 	notifier.Loop()
 }

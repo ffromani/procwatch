@@ -11,30 +11,30 @@ import (
 )
 
 type Notifier struct {
-	argv      []string
-	autotrack bool
-	hostname  string
-	interval  time.Duration
-	name      string
-	procs     map[int32]*process.Process
+	conf  Config
+	procs map[int32]*process.Process
 }
 
-func NewNotifier(name string, argv []string, autotrack bool, hostname string, interval time.Duration) *Notifier {
-	if name == "" {
-		name = filepath.Base(argv[0])
+type Config struct {
+	Argv      []string
+	AutoTrack bool
+	ReportPid bool
+	Interval  time.Duration
+	Name      string
+	Hostname  string
+}
+
+func NewNotifier(conf Config) *Notifier {
+	cfg := conf
+	if cfg.Name == "" {
+		cfg.Name = filepath.Base(conf.Argv[0])
 	}
-	return &Notifier{
-		name:      name,
-		argv:      argv,
-		autotrack: autotrack,
-		hostname:  hostname,
-		interval:  interval,
-	}
+	return &Notifier{conf: cfg}
 }
 
 func (notif *Notifier) Scan() error {
 	notif.procs = make(map[int32]*process.Process)
-	pids, err := procfind.FindAll(notif.argv)
+	pids, err := procfind.FindAll(notif.conf.Argv)
 	if err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func (notif *Notifier) IsCurrent() bool {
 		return false
 	}
 	for pid := range notif.procs {
-		if !procfind.Match(notif.argv, procfind.Pid(pid)) {
+		if !procfind.Match(notif.conf.Argv, procfind.Pid(pid)) {
 			return false
 		}
 	}
@@ -76,8 +76,15 @@ func round(val float64, roundOn float64, places int) float64 {
 }
 
 func (notif *Notifier) collectd(proc *process.Process) error {
-	ident := fmt.Sprintf("PUTVAL %s/exec-%s-%d", notif.hostname, notif.name, proc.Pid)
-	interval := int(notif.interval.Seconds())
+	interval := int(notif.conf.Interval.Seconds())
+
+	var ident string
+	if !notif.conf.ReportPid {
+		ident = fmt.Sprintf("PUTVAL %s/exec-%s-%d", notif.conf.Hostname, notif.conf.Name, proc.Pid)
+	} else {
+		ident = fmt.Sprintf("PUTVAL %s/exec-%s", notif.conf.Hostname, notif.conf.Name)
+		fmt.Printf("%s/objects interval=%d N:%d\n", ident, interval, proc.Pid)
+	}
 
 	cpu_perc, err := proc.Percent(0)
 	if err != nil {
@@ -110,7 +117,7 @@ func (notif *Notifier) Update() {
 }
 
 func (notif *Notifier) Loop() {
-	c := time.Tick(notif.interval)
+	c := time.Tick(notif.conf.Interval)
 
 	log.Printf("collection started")
 	defer log.Printf("collection stopped")
@@ -123,7 +130,7 @@ func (notif *Notifier) Loop() {
 	for _ = range c {
 		// WARNING: we assume collection time is negligible
 		if !notif.IsCurrent() {
-			if !notif.autotrack {
+			if !notif.conf.AutoTrack {
 				log.Printf("stale pid(s) -- aborting!")
 				break
 			} else {
