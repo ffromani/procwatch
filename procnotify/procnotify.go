@@ -16,12 +16,12 @@ type Notifier struct {
 }
 
 type Config struct {
-	Argv      []string
-	AutoTrack bool
-	ReportPid bool
-	Interval  time.Duration
-	Name      string
-	Hostname  string
+	Argv       []string
+	AutoTrack  bool
+	StableName bool
+	Interval   time.Duration
+	Name       string
+	Hostname   string
 }
 
 func NewNotifier(conf Config) *Notifier {
@@ -79,7 +79,7 @@ func (notif *Notifier) collectd(proc *process.Process) error {
 	interval := int(notif.conf.Interval.Seconds())
 
 	var ident string
-	if !notif.conf.ReportPid {
+	if !notif.conf.StableName {
 		ident = fmt.Sprintf("PUTVAL %s/exec-%s-%d", notif.conf.Hostname, notif.conf.Name, proc.Pid)
 	} else {
 		ident = fmt.Sprintf("PUTVAL %s/exec-%s", notif.conf.Hostname, notif.conf.Name)

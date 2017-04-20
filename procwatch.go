@@ -87,7 +87,7 @@ func (intv *Interval) Fill(conf procnotify.Config) error {
 }
 
 func loadConf() procnotify.Config {
-	conf := procnotify.Config{Interval: 2, AutoTrack: true, ReportPid: true}
+	conf := procnotify.Config{Interval: 2, AutoTrack: true, StableName: true}
 	if len(os.Args) >= 2 {
 		err := ReadFile(&conf, os.Args[1])
 		if err == nil {
