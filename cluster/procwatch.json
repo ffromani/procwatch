@@ -1,0 +1,11 @@
+{
+	"criendpoint": "/var/run/dockershim.sock",
+	"interval": "5s",
+	"targets": [{
+		"name": "libvirt",
+		"argv": ["/usr/sbin/libvirtd*"]
+	}, {
+		"name": "qemu",
+		"argv": ["/usr/*/qemu*"]
+	}]
+}

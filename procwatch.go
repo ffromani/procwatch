@@ -1,21 +1,36 @@
 package main
 
 import (
+	"github.com/davecgh/go-spew/spew"
+	"github.com/fromanirh/procwatch/podfind"
+	"github.com/fromanirh/procwatch/procnotify"
+	flag "github.com/spf13/pflag"
+
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fromanirh/procwatch/procnotify"
 	"io/ioutil"
 	"log"
 	"os"
-	"path"
 	"strconv"
 	"time"
 )
 
 const confFile string = "procwatch.json"
 
-func ReadFile(conf *procnotify.Config, path string) error {
+type Config struct {
+	Targets     []procnotify.Config `json:"targets"`
+	Interval    string              `json:"interval"`
+	Hostname    string              `json:"hostname"`
+	CRIEndPoint string              `json:"criendpoint"`
+	AutoTrack   bool                `json:"autotrack"`
+}
+
+func (c Config) CountTargets() int {
+	return len(c.Targets)
+}
+
+func readFile(conf *Config, path string) error {
 	log.Printf("trying configuration: %s", path)
 
 	content, err := ioutil.ReadFile(path)
@@ -31,101 +46,40 @@ func ReadFile(conf *procnotify.Config, path string) error {
 	}
 
 	log.Printf("Read from file: %s", path)
-	log.Printf("Updated configuration: %#v", conf)
 	return nil
 }
 
-type Interval struct {
-	Cmdline time.Duration
-	Environ time.Duration
-	Config  time.Duration
-}
-
-func (intv *Interval) Pick() time.Duration {
-	val := time.Duration(1) * time.Second
-	if intv.Cmdline < intv.Config {
-		val = intv.Config
-	} else {
-		val = intv.Cmdline
-	}
-	if val < intv.Environ {
-		return intv.Environ
-	}
-	return val
-}
-
-func NewInterval() Interval {
-	val := time.Duration(1) * time.Second
-	return Interval{Cmdline: val, Environ: val, Config: val}
-}
-
-func (intv *Interval) Fill(conf procnotify.Config) error {
-	if conf.Interval <= 0 {
-		return errors.New(fmt.Sprintf("invalid interval: %d", conf.Interval))
-	}
-
-	intv.Config = time.Duration(conf.Interval) * time.Second
-
-	if len(os.Args) >= 3 {
-		val, err := strconv.Atoi(os.Args[2])
+func findInterval(conf Config, args []string) (time.Duration, error) {
+	if len(args) >= 2 {
+		ival, err := strconv.Atoi(args[1])
 		if err != nil {
-			return err
+			return 0, err
 		}
-		intv.Cmdline = time.Duration(val) * time.Second
+		return time.Duration(ival) * time.Second, nil
 	}
 
 	envVar := os.Getenv("COLLECTD_INTERVAL")
 	if envVar != "" {
-		val, err := strconv.ParseFloat(envVar, 64)
+		fval, err := strconv.ParseFloat(envVar, 64)
 		if err != nil {
-			return err
+			return 0, err
 		}
-		intv.Environ = time.Duration(int(val)) * time.Second
+		return time.Duration(int(fval)) * time.Second, nil
 	}
 
-	return nil
-}
+	if conf.Interval == "" {
+		return 0, errors.New(fmt.Sprintf("invalid interval: %d", conf.Interval))
+	}
 
-func loadConf() procnotify.Config {
-	conf := procnotify.Config{Interval: 2, AutoTrack: true, StableName: true}
-	if len(os.Args) >= 2 {
-		err := ReadFile(&conf, os.Args[1])
-		if err == nil {
-			return conf
-		}
-	}
-	confDirs := []string{
-		os.Getenv("PROCWATCH_CONFIG_DIR"),
-		"/etc",
-		".",
-	}
-	for _, confDir := range confDirs {
-		if confDir == "" {
-			continue
-		}
-		confPath := path.Join(confDir, confFile)
-		log.Printf("trying configuration: %s", confPath)
-		err := ReadFile(&conf, confPath)
-		if err == nil {
-			break
-		}
-	}
-	return conf
-}
-
-func selectInterval(conf *procnotify.Config) time.Duration {
-	intv := NewInterval()
-	err := intv.Fill(*conf)
+	dval, err := time.ParseDuration(conf.Interval)
 	if err != nil {
-		log.Printf("unknown duration: %s", err)
-		return 0
+		return 0, err
 	}
-	conf.Interval = intv.Pick()
-	return conf.Interval
+	return dval, nil
 }
 
 func needHelp() bool {
-	if len(os.Args) > 3 {
+	if len(os.Args) < 2 || len(os.Args) > 3 {
 		return true
 	}
 	if len(os.Args) >= 2 {
@@ -137,42 +91,68 @@ func needHelp() bool {
 }
 
 func main() {
-	if needHelp() {
-		fmt.Fprintf(os.Stderr, "usage: %s [/path/to/procwatch.json [interval_seconds]]\n", os.Args[0])
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "usage: %s /path/to/procwatch.json [interval_seconds]\n", os.Args[0])
+		flag.PrintDefaults()
+	}
+	debugMode := flag.BoolP("debug", "D", false, "enable debug mode")
+	flag.Parse()
+
+	args := flag.Args()
+
+	if len(args) < 1 {
+		flag.Usage()
 		return
 	}
 
 	log.Printf("procwatcher started")
 	defer log.Printf("procwatcher stopped")
 
-	var err error
-	conf := loadConf()
+	conf := Config{Interval: "5s"}
+	err := readFile(&conf, args[0])
+	if err != nil {
+		log.Fatalf("error reading the configuration on '%s': %s", args[0], err)
+	}
 
-	hostname := os.Getenv("COLLECTD_HOSTNAME")
-	if hostname == "" {
-		hostname, err = os.Hostname()
+	conf.Hostname = os.Getenv("COLLECTD_HOSTNAME")
+	if conf.Hostname == "" {
+		conf.Hostname, err = os.Hostname()
 		if err != nil {
-			log.Printf("error getting the host name: %s", err)
-			return
+			log.Fatalf("error getting the host name: %s", err)
 		}
 	}
-	conf.Hostname = hostname
 
-	if len(conf.Argv) == 0 {
-		log.Printf("missing process to track")
-		return
+	interval, err := findInterval(conf, args)
+	if err != nil {
+		log.Fatalf("error getting the polling interval: %s", err)
 	} else {
-		log.Printf("configuration: %#v", conf)
+		log.Printf("polling interval: %v", interval)
 	}
 
-	selectInterval(&conf)
-	if conf.Interval <= 0 {
-		log.Printf("bad interval: %v", conf.Interval)
+	dryRun := os.Getenv("PROCWATCH_DRYRUN")
+	if dryRun != "" {
+		log.Printf("%s", spew.Sdump(conf))
 		return
-	} else {
-		log.Printf("updating process stats every %v", conf.Interval)
 	}
 
-	notifier := procnotify.NewNotifier(conf)
-	notifier.Loop()
+	if conf.CountTargets() == 0 {
+		log.Fatalf("missing process(es) to track")
+	}
+
+	var pr *podfind.PodResolver
+	if conf.CRIEndPoint != "" {
+		log.Printf("enabled POD ID resolution")
+		pr, err = podfind.NewPodResolver(conf.CRIEndPoint, 10*time.Second)
+		if err != nil {
+			log.Fatalf("unable to set up pod resolution: %s", err)
+		} else {
+			pr.Debug = *debugMode
+		}
+	}
+
+	notifier := procnotify.NewNotifier(conf.Targets, pr)
+	log.Printf("Tracking:\n")
+	notifier.Dump(os.Stderr)
+
+	notifier.Loop(conf.Hostname, interval, conf.AutoTrack)
 }

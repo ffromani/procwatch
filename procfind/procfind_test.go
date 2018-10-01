@@ -16,15 +16,6 @@ func TestPathNoEnv(t *testing.T) {
 	}
 }
 
-func expect(t *testing.T, err error, val, exp string) {
-	if err != nil {
-		t.Errorf("unexpected error: %s", err)
-	}
-	if val != exp {
-		t.Errorf("unexpected result: %s (instead of %s)", val, exp)
-	}
-}
-
 func TestPathWithEnv(t *testing.T) {
 	testPath := "/bin:/sbin:/usr/bin:/usr/sbin"
 	oldPath := os.Getenv("PATH")
@@ -91,16 +82,47 @@ func TestWhichWithEnv(t *testing.T) {
 	expect(t, err, val, "/bin/sh")
 }
 
-func TestReadProcCmdline(t *testing.T) {
-	argv := readProcCmdline("/proc/1/cmdline")
-	if len(argv) == 0 {
-		t.Errorf("failed to read cmdline of pid 1")
+func TestMatchArgv(t *testing.T) {
+	model := []string{"/usr/*/qemu*"}
+	type testcase struct {
+		argv          []string
+		expectedMatch bool
+	}
+	testcases := []testcase{
+		{
+			argv:          []string{"/usr/bin/qemu-system-x86_64"},
+			expectedMatch: true,
+		},
+		{
+			argv:          []string{"/usr/libexec/qemu-kvm"},
+			expectedMatch: true,
+		},
+		{
+			argv:          []string{"/libexec/qemu-kvm"},
+			expectedMatch: false,
+		},
+		{
+			argv:          []string{"/usr/libexec/fake-qemu"},
+			expectedMatch: false,
+		},
+	}
+
+	for _, tcase := range testcases {
+		ok, err := MatchArgv(tcase.argv, model)
+		if err != nil {
+			t.Errorf("unexpected error: %s", err)
+		}
+		if ok != tcase.expectedMatch {
+			t.Errorf("mismatch: got %v for %#v", ok, tcase)
+		}
 	}
 }
 
-func TestReadProcCmdlineInexistent(t *testing.T) {
-	argv := readProcCmdline("/proc/0/cmdline")
-	if len(argv) > 0 {
-		t.Errorf("Unexpected data for pid 0: %#v", argv)
+func expect(t *testing.T, err error, val, exp string) {
+	if err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
+	if val != exp {
+		t.Errorf("unexpected result: %s (instead of %s)", val, exp)
 	}
 }

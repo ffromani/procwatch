@@ -24,4 +24,8 @@ _testmain.go
 *.prof
 
 # main binary
-./procwatch
+procwatch
+# test conf file
+procwatch.json
+
+tags

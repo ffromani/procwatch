@@ -60,3 +60,22 @@ func Which(exename string) (string, error) {
 func isExecutable(info os.FileInfo) bool {
 	return bool(int(info.Mode().Perm()&0111) != 0)
 }
+
+func MatchArgv(argv, model []string) (bool, error) {
+	ref := model
+	oth := argv
+	if len(argv) < len(model) {
+		ref = argv
+		oth = model
+	}
+	for idx, elem := range ref {
+		matched, err := filepath.Match(elem, oth[idx])
+		if err != nil {
+			return false, err
+		}
+		if !matched {
+			return false, nil
+		}
+	}
+	return true, nil
+}

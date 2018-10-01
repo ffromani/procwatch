@@ -1,4 +1,4 @@
 {
 	"Argv": ["/usr/sbin/libvirtd"],
-	"Interval": 2
+	"Interval": 5
 }

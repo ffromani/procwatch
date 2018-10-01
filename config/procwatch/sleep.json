@@ -1,0 +1,5 @@
+{
+	"Argv": ["/usr/bin/sleep"],
+	"Interval": 2,
+	"StableName": false
+}
