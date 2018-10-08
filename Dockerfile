@@ -14,6 +14,7 @@ RUN \
   dnf clean all
 
 COPY docker/collectd.conf /etc/collectd.conf
+COPY cluster/procwatch.json /etc/procwatch.json
 COPY procwatch /usr/local/libexec/procwatch
 
 ENTRYPOINT ["/usr/sbin/collectd", "-f"]
