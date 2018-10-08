@@ -7,12 +7,13 @@ collectd.
 License
 =======
 
-MIT
+Apache v2
 
 Dependencies
 ============
 
 [gopsutil](https://github.com/shirou/gopsutil)
+[kubernetes APIs](https://github.com/kubernetes/kubernetes)
 
 Installation
 ============
@@ -31,6 +32,8 @@ Installation
   ```
 
 You may want to make this setting persistent
+
+0. (TODO): ensure the vendored dependencies
 
 1. checkout the sources, and transparently build the tool
 
