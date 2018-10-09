@@ -147,7 +147,8 @@ func main() {
 		log.Printf("enabled POD ID resolution")
 		pr, err = podfind.NewPodResolver(conf.CRIEndPoint, 10*time.Second)
 		if err != nil {
-			log.Fatalf("unable to set up pod resolution: %s", err)
+			log.Printf("unable to set up pod resolution: %s", err)
+			pr = nil
 		} else {
 			pr.Debug = *debugMode
 		}
