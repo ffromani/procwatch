@@ -80,23 +80,12 @@ func findInterval(conf Config, args []string) (time.Duration, error) {
 	return dval, nil
 }
 
-func needHelp() bool {
-	if len(os.Args) < 2 || len(os.Args) > 3 {
-		return true
-	}
-	if len(os.Args) >= 2 {
-		if os.Args[1] == "-h" || os.Args[1] == "--help" {
-			return true
-		}
-	}
-	return false
-}
-
 func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "usage: %s /path/to/procwatch.json [interval_seconds]\n", os.Args[0])
 		flag.PrintDefaults()
 	}
+	requirePodResolution := flag.BoolP("require-pod", "R", false, "fail if pod resolution is not enabled")
 	debugMode := flag.BoolP("debug", "D", false, "enable debug mode")
 	sinkPath := flag.StringP("unixsock", "U", "", "send output to <unixsock> not to stdout")
 	flag.Parse()
@@ -152,6 +141,10 @@ func main() {
 		} else {
 			pr.Debug = *debugMode
 		}
+	}
+
+	if pr == nil && *requirePodResolution {
+		log.Fatalf("pod resolution required but not enabled!")
 	}
 
 	var sink io.Writer = os.Stdout
