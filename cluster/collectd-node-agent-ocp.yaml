@@ -22,7 +22,7 @@ spec:
       containers:
       - name: collectd
         ports:
-        - containerPort: 9090
+        - containerPort: 9091
           protocol: TCP
         image: fromanirh/collectd:0.3.5
         imagePullPolicy: IfNotPresent
