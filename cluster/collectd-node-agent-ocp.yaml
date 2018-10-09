@@ -29,16 +29,6 @@ spec:
         volumeMounts:
         - name: collectd-config
           mountPath: /etc/collectd
-        - name: proc
-          mountPath: /mnt/proc
-          readOnly: true
-        - name: root
-          mountPath: /hostfs
-          readOnly: true
-        securityContext:
-          capabilities:
-            add:
-            - SYS_PTRACE
       volumes:
       - name: collectd-config
         configMap:
@@ -46,10 +36,4 @@ spec:
           items:
           - key: node-collectd.conf
             path: collectd.conf
-      - name: proc
-        hostPath:
-          path: /proc
-      - name: root
-        hostPath:
-          path: /
 
