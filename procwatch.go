@@ -9,8 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
+	"net"
 	"os"
 	"strconv"
 	"time"
@@ -96,6 +98,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	debugMode := flag.BoolP("debug", "D", false, "enable debug mode")
+	sinkPath := flag.StringP("unixsock", "U", "", "send output to <unixsock> not to stdout")
 	flag.Parse()
 
 	args := flag.Args()
@@ -150,7 +153,17 @@ func main() {
 		}
 	}
 
-	notifier := procnotify.NewNotifier(conf.Targets, pr)
+	var sink io.Writer = os.Stdout
+	if *sinkPath != "" {
+		sock, err := net.Dial("unix", *sinkPath)
+		if err != nil {
+			log.Fatalf("cannot open output sink '%s': %s", *sinkPath, err)
+		}
+		defer sock.Close()
+		sink = sock
+	}
+
+	notifier := procnotify.NewNotifier(conf.Targets, pr, sink)
 	log.Printf("Tracking:\n")
 	notifier.Dump(os.Stderr)
 

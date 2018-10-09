@@ -40,6 +40,7 @@ type Proc struct {
 }
 
 type Notifier struct {
+	sink    io.Writer
 	targets []*Target
 	procs   map[int32]Proc
 	pr      *podfind.PodResolver
@@ -58,8 +59,11 @@ func (notif *Notifier) MatchArgv(argv []string) (procfind.Entry, bool) {
 	return &Target{}, false
 }
 
-func NewNotifier(targets []Config, pr *podfind.PodResolver) *Notifier {
-	notif := Notifier{pr: pr}
+func NewNotifier(targets []Config, pr *podfind.PodResolver, sink io.Writer) *Notifier {
+	notif := Notifier{
+		pr:   pr,
+		sink: sink,
+	}
 	for _, target := range targets {
 		t := &Target{
 			Config: target,
@@ -140,29 +144,29 @@ func (notif *Notifier) collectd(proc Proc, hostname string, interval int) error 
 		}
 	} else {
 		ident = fmt.Sprintf("PUTVAL %s/exec-%s", hostname, proc.t.Name)
-		fmt.Printf("%s/objects interval=%d N:%d\n", ident, interval, proc.p.Pid)
+		fmt.Fprintf(notif.sink, "%s/objects interval=%d N:%d\n", ident, interval, proc.p.Pid)
 	}
 
 	cpu_perc, err := proc.p.Percent(0)
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s/cpu-perc interval=%d N:%d\n", ident, interval, int(round(cpu_perc, 0.5, 0)))
-	fmt.Printf("%s/percent-cpu interval=%d N:%d\n", ident, interval, int(round(cpu_perc, 0.5, 0)))
+	fmt.Fprintf(notif.sink, "%s/cpu-perc interval=%d N:%d\n", ident, interval, int(round(cpu_perc, 0.5, 0)))
+	fmt.Fprintf(notif.sink, "%s/percent-cpu interval=%d N:%d\n", ident, interval, int(round(cpu_perc, 0.5, 0)))
 
 	cpu_times, err := proc.p.Times()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s/cpu-user interval=%d N:%d\n", ident, interval, int(round(cpu_times.User, 0.5, 0)))
-	fmt.Printf("%s/cpu-system interval=%d N:%d\n", ident, interval, int(round(cpu_times.System, 0.5, 0)))
+	fmt.Fprintf(notif.sink, "%s/cpu-user interval=%d N:%d\n", ident, interval, int(round(cpu_times.User, 0.5, 0)))
+	fmt.Fprintf(notif.sink, "%s/cpu-system interval=%d N:%d\n", ident, interval, int(round(cpu_times.System, 0.5, 0)))
 
 	mem_info, err := proc.p.MemoryInfo()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s/memory-virtual interval=%d N:%d\n", ident, interval, mem_info.VMS/1024)
-	fmt.Printf("%s/memory-resident interval=%d N:%d\n", ident, interval, mem_info.RSS/1024)
+	fmt.Fprintf(notif.sink, "%s/memory-virtual interval=%d N:%d\n", ident, interval, mem_info.VMS/1024)
+	fmt.Fprintf(notif.sink, "%s/memory-resident interval=%d N:%d\n", ident, interval, mem_info.RSS/1024)
 
 	return nil
 }

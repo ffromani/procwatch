@@ -15,6 +15,7 @@ RUN \
 
 COPY docker/collectd.conf /etc/collectd.conf
 COPY cluster/procwatch.json /etc/procwatch.json
-COPY procwatch /usr/local/libexec/procwatch
+COPY procwatch /usr/sbin/procwatch
+COPY cluster/collectd.sh /collectd.sh
 
-ENTRYPOINT ["/usr/sbin/collectd", "-f"]
+ENTRYPOINT ["/collectd.sh"]

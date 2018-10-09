@@ -9,12 +9,14 @@ data:
     <Plugin syslog>
        LogLevel info
     </Plugin>
-    LoadPlugin exec
-    <Plugin exec>
-       Exec "/usr/local/libexec/procwatch" "/etc/procwatch.json"
-    </Plugin>
     LoadPlugin write_prometheus
     <Plugin "write_prometheus">
       Port "9090"
+    </Plugin>
+    LoadPlugin unixsock
+    <Plugin unixsock>
+      SocketFile "/var/run/collectd.sock"
+      SocketPerms "0700"
+      DeleteSocket true
     </Plugin>
 

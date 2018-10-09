@@ -24,7 +24,7 @@ spec:
         ports:
         - containerPort: 9090
           protocol: TCP
-        image: fromanirh/collectd:0.3.1
+        image: fromanirh/collectd:0.3.5
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: collectd-config
