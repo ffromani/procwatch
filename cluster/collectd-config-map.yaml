@@ -11,7 +11,7 @@ data:
     </Plugin>
     LoadPlugin write_prometheus
     <Plugin "write_prometheus">
-      Port "9090"
+      Port "9091"
     </Plugin>
     LoadPlugin unixsock
     <Plugin unixsock>
