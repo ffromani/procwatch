@@ -13,7 +13,7 @@ spec:
         prometheus.kubevirt.io: ""
       annotations:
         prometheus.io/scrape: "true"
-        prometheus.io/port: "9090"
+        prometheus.io/port: "9091"
     spec:
       serviceAccountName: kubevirt-privileged
       hostNetwork: true
@@ -26,7 +26,7 @@ spec:
         - containerPort: 9091
           protocol: "TCP"
           name: "metrics"
-        image: fromanirh/collectd:0.3.5
+        image: fromanirh/collectd:0.3.6
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: collectd-config
