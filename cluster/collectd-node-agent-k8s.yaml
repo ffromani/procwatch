@@ -10,6 +10,7 @@ spec:
     metadata:
       labels:
         name: collectd-node-agent
+        prometheus.kubevirt.io: ""
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
@@ -23,7 +24,8 @@ spec:
       - name: collectd
         ports:
         - containerPort: 9091
-          protocol: TCP
+          protocol: "TCP"
+          name: "metrics"
         image: fromanirh/collectd:0.3.5
         imagePullPolicy: IfNotPresent
         volumeMounts:
