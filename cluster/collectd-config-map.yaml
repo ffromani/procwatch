@@ -20,3 +20,4 @@ data:
       DeleteSocket true
     </Plugin>
 
+    # Last line to make the collectd parser happy
