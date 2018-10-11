@@ -10,13 +10,12 @@ spec:
     metadata:
       labels:
         name: collectd-node-agent
-        prometheus.kubevirt.io: ""
+        vmi.prometheus.kubevirt.io: ""
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9091"
     spec:
       serviceAccountName: kubevirt-privileged
-      hostNetwork: true
       hostPID: true
       nodeSelector:
         kubevirt.io/schedulable: "true"
@@ -25,7 +24,7 @@ spec:
         ports:
         - containerPort: 9091
           protocol: "TCP"
-          name: "metrics"
+          name: "metrics-vmi"
         image: fromanirh/collectd:0.3.6
         imagePullPolicy: IfNotPresent
         volumeMounts:
