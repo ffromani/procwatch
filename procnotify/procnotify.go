@@ -9,6 +9,8 @@ import (
 	"io"
 	"log"
 	"math"
+	"net"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -40,10 +42,11 @@ type Proc struct {
 }
 
 type Notifier struct {
-	sink    io.Writer
-	targets []*Target
-	procs   map[int32]Proc
-	pr      *podfind.PodResolver
+	Debug    bool
+	targets  []*Target
+	procs    map[int32]Proc
+	pr       *podfind.PodResolver
+	sinkPath string
 }
 
 func (notif *Notifier) MatchArgv(argv []string) (procfind.Entry, bool) {
@@ -59,10 +62,10 @@ func (notif *Notifier) MatchArgv(argv []string) (procfind.Entry, bool) {
 	return &Target{}, false
 }
 
-func NewNotifier(targets []Config, pr *podfind.PodResolver, sink io.Writer) *Notifier {
+func NewNotifier(targets []Config, pr *podfind.PodResolver, sinkPath string) *Notifier {
 	notif := Notifier{
-		pr:   pr,
-		sink: sink,
+		pr:       pr,
+		sinkPath: sinkPath,
 	}
 	for _, target := range targets {
 		t := &Target{
@@ -132,6 +135,17 @@ func round(val float64, roundOn float64, places int) float64 {
 func (notif *Notifier) collectd(proc Proc, hostname string, interval int) error {
 	var err error
 	var ident string
+
+	var sink io.Writer = os.Stdout
+	if notif.sinkPath != "" {
+		sock, err := net.Dial("unix", notif.sinkPath)
+		if err != nil {
+			return err
+		}
+		defer sock.Close()
+		sink = sock
+	}
+
 	if !proc.t.StableName {
 		if notif.pr != nil {
 			podName, err := notif.pr.FindPodByPID(proc.p.Pid)
@@ -144,37 +158,64 @@ func (notif *Notifier) collectd(proc Proc, hostname string, interval int) error 
 		}
 	} else {
 		ident = fmt.Sprintf("PUTVAL %s/exec-%s", hostname, proc.t.Name)
-		fmt.Fprintf(notif.sink, "%s/objects interval=%d N:%d\n", ident, interval, proc.p.Pid)
+		fmt.Fprintf(sink, "%s/objects interval=%d N:%d\n", ident, interval, proc.p.Pid)
 	}
 
 	cpu_perc, err := proc.p.Percent(0)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(notif.sink, "%s/cpu-perc interval=%d N:%d\n", ident, interval, int(round(cpu_perc, 0.5, 0)))
-	fmt.Fprintf(notif.sink, "%s/percent-cpu interval=%d N:%d\n", ident, interval, int(round(cpu_perc, 0.5, 0)))
+	fmt.Fprintf(sink, "%s/cpu-perc interval=%d N:%d\n", ident, interval, int(round(cpu_perc, 0.5, 0)))
+	fmt.Fprintf(sink, "%s/percent-cpu interval=%d N:%d\n", ident, interval, int(round(cpu_perc, 0.5, 0)))
 
 	cpu_times, err := proc.p.Times()
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(notif.sink, "%s/cpu-user interval=%d N:%d\n", ident, interval, int(round(cpu_times.User, 0.5, 0)))
-	fmt.Fprintf(notif.sink, "%s/cpu-system interval=%d N:%d\n", ident, interval, int(round(cpu_times.System, 0.5, 0)))
+	fmt.Fprintf(sink, "%s/cpu-user interval=%d N:%d\n", ident, interval, int(round(cpu_times.User, 0.5, 0)))
+	fmt.Fprintf(sink, "%s/cpu-system interval=%d N:%d\n", ident, interval, int(round(cpu_times.System, 0.5, 0)))
 
 	mem_info, err := proc.p.MemoryInfo()
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(notif.sink, "%s/memory-virtual interval=%d N:%d\n", ident, interval, mem_info.VMS/1024)
-	fmt.Fprintf(notif.sink, "%s/memory-resident interval=%d N:%d\n", ident, interval, mem_info.RSS/1024)
+	fmt.Fprintf(sink, "%s/memory-virtual interval=%d N:%d\n", ident, interval, mem_info.VMS/1024)
+	fmt.Fprintf(sink, "%s/memory-resident interval=%d N:%d\n", ident, interval, mem_info.RSS/1024)
 
 	return nil
 }
 
 func (notif *Notifier) Update(hostname string, interval int) {
+	var err error
 	for _, proc := range notif.procs {
-		notif.collectd(proc, hostname, interval)
+		err = notif.collectd(proc, hostname, interval)
+		if err != nil {
+			log.Printf("Update failed: %s", err)
+		}
 	}
+
+	if notif.Debug {
+		log.Printf("updated")
+	}
+}
+
+func (notif *Notifier) Once(hostname string) {
+	var err error
+
+	err = notif.Scan()
+	if err != nil {
+		log.Printf("error during the collection setup: %v", err)
+	}
+
+	// WARNING: we assume collection time is negligible
+	if notif.pr != nil {
+		err = notif.pr.Update()
+		if err != nil {
+			log.Printf("error during the kube update: %v", err)
+		}
+	}
+
+	notif.Update(hostname, 0)
 }
 
 func (notif *Notifier) Loop(hostname string, interval time.Duration, autoTrack bool) {

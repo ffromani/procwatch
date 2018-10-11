@@ -9,10 +9,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
-	"net"
 	"os"
 	"strconv"
 	"time"
@@ -26,6 +24,7 @@ type Config struct {
 	Hostname    string              `json:"hostname"`
 	CRIEndPoint string              `json:"criendpoint"`
 	AutoTrack   bool                `json:"autotrack"`
+	DebugMode   bool                `json:"debugmode"`
 }
 
 func (c Config) CountTargets() int {
@@ -86,7 +85,7 @@ func main() {
 		flag.PrintDefaults()
 	}
 	requirePodResolution := flag.BoolP("require-pod", "R", false, "fail if pod resolution is not enabled")
-	debugMode := flag.BoolP("debug", "D", false, "enable debug mode")
+	debugMode := flag.BoolP("debug", "D", false, "enable pod resolution debug mode")
 	sinkPath := flag.StringP("unixsock", "U", "", "send output to <unixsock> not to stdout")
 	flag.Parse()
 
@@ -147,19 +146,14 @@ func main() {
 		log.Fatalf("pod resolution required but not enabled!")
 	}
 
-	var sink io.Writer = os.Stdout
-	if *sinkPath != "" {
-		sock, err := net.Dial("unix", *sinkPath)
-		if err != nil {
-			log.Fatalf("cannot open output sink '%s': %s", *sinkPath, err)
-		}
-		defer sock.Close()
-		sink = sock
-	}
-
-	notifier := procnotify.NewNotifier(conf.Targets, pr, sink)
+	notifier := procnotify.NewNotifier(conf.Targets, pr, *sinkPath)
+	notifier.Debug = conf.DebugMode
 	log.Printf("Tracking:\n")
 	notifier.Dump(os.Stderr)
 
-	notifier.Loop(conf.Hostname, interval, conf.AutoTrack)
+	if interval == 0 {
+		notifier.Once(conf.Hostname)
+	} else {
+		notifier.Loop(conf.Hostname, interval, conf.AutoTrack)
+	}
 }
