@@ -25,7 +25,7 @@ spec:
         - containerPort: 9091
           protocol: "TCP"
           name: "metrics-vmi"
-        image: fromanirh/collectd:0.3.6
+        image: fromanirh/collectd:0.3.7
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: collectd-config
