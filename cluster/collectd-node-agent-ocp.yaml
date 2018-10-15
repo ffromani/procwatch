@@ -30,6 +30,8 @@ spec:
         volumeMounts:
         - name: collectd-config
           mountPath: /etc/collectd
+        - name: cri-runtime
+          mountPath: /var/run
       volumes:
       - name: collectd-config
         configMap:
@@ -37,4 +39,6 @@ spec:
           items:
           - key: node-collectd.conf
             path: collectd.conf
-
+      - name: cri-runtime
+        hostPath:
+          path: /var/run
