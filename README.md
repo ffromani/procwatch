@@ -81,10 +81,8 @@ Please check the next sections for Caveats.
 Notes about integration with kubernetes/kubevirt
 ================================================
 
-**WARNING**
-In order to resolve the PIDs to meaningful VM domain names, procwatch **needs to access the CRI socket on the host**. The default YAMLs do that exposing the host /var/run, because by default
-the CRI socket sits in /var/run (and not in a subdirectory, which would make things easier).
-**YOU MAY WANT TO REVIEW THIS SETTING BEFORE TO DEPLOY PROCWATCH ON YOUR CLUSTER**
+Please be aware that in order to resolve the PIDs to meaningful VM domain names, procwatch **needs to access the CRI socket on the host**.
+This is equivalent of exposing the docker socket inside the container. This may or may not be an issue on your cluster setup.
 
 If you disable the CRI socket access, procwatch will just report the PIDs of the monitored processes.
 

@@ -25,13 +25,13 @@ spec:
         - containerPort: 9091
           protocol: "TCP"
           name: "metrics-vmi"
-        image: fromanirh/collectd:0.3.7
+        image: fromanirh/collectd:0.3.8
         imagePullPolicy: IfNotPresent
         volumeMounts:
         - name: collectd-config
           mountPath: /etc/collectd
         - name: cri-runtime
-          mountPath: /var/run
+          mountPath: /var/run/dockershim.sock
       volumes:
       - name: collectd-config
         configMap:
@@ -41,4 +41,4 @@ spec:
             path: collectd.conf
       - name: cri-runtime
         hostPath:
-          path: /var/run
+          path: /var/run/dockershim.sock
