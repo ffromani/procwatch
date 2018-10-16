@@ -107,10 +107,14 @@ func (notif *Notifier) Scan() error {
 	return nil
 }
 
-func (notif *Notifier) IsCurrent() bool {
+func (notif *Notifier) HasTargets() bool {
 	if len(notif.procs) == 0 {
 		return false
 	}
+	return true
+}
+
+func (notif *Notifier) IsCurrent() bool {
 	for pid, proc := range notif.procs {
 		if !procfind.Match(proc.t.Argv, procfind.Pid(pid)) {
 			return false
@@ -238,6 +242,11 @@ func (notif *Notifier) Loop(hostname string, interval time.Duration, autoTrack b
 			if err != nil {
 				log.Printf("error during the kube update: %v", err)
 			}
+		}
+
+		if !notif.HasTargets() {
+			log.Printf("nothing to do...")
+			continue
 		}
 
 		if !notif.IsCurrent() {
